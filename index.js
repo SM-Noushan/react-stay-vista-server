@@ -3,7 +3,12 @@ const app = express();
 require("dotenv").config();
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const {
+  MongoClient,
+  ServerApiVersion,
+  ObjectId,
+  Timestamp,
+} = require("mongodb");
 const jwt = require("jsonwebtoken");
 
 const port = process.env.PORT || 8000;
@@ -49,6 +54,7 @@ async function run() {
   try {
     const db = client.db("stayVista");
     const roomCollection = db.collection("rooms");
+    const userCollection = db.collection("users");
 
     // auth related api
     app.post("/jwt", async (req, res) => {
@@ -78,6 +84,30 @@ async function run() {
       } catch (err) {
         res.status(500).send(err);
       }
+    });
+
+    // user related api
+
+    // save user data in db
+    app.put("/user", async (req, res) => {
+      const user = req.body;
+      const options = { upsert: true };
+      const query = { email: user?.email };
+      // insert only if its a new user
+      const updateDoc = {
+        $setOnInsert: {
+          ...user,
+          timestamp: Date.now(),
+        },
+      };
+      const result = await userCollection.updateOne(query, updateDoc, options);
+      res.send(result);
+    });
+
+    // get all user
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
     });
 
     // rooms related api
