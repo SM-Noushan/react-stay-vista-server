@@ -93,13 +93,22 @@ async function run() {
       const user = req.body;
       const options = { upsert: true };
       const query = { email: user?.email };
+      let updateDoc = {};
+      if (user?.status.toLowerCase() === "requested")
+        // update user status to requested
+        updateDoc = {
+          $set: {
+            status: user?.status,
+          },
+        };
       // insert only if its a new user
-      const updateDoc = {
-        $setOnInsert: {
-          ...user,
-          timestamp: Date.now(),
-        },
-      };
+      else
+        updateDoc = {
+          $setOnInsert: {
+            ...user,
+            timestamp: Date.now(),
+          },
+        };
       const result = await userCollection.updateOne(query, updateDoc, options);
       res.send(result);
     });
