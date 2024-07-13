@@ -27,14 +27,14 @@ app.use(cookieParser());
 // Verify Token Middleware
 const verifyToken = async (req, res, next) => {
   const token = req.cookies?.token;
-  console.log(token);
+  // console.log(token);
   if (!token) {
-    return res.status(401).send({ message: "unauthorized access" });
+    return res.status(401).send({ message: "Unauthorized Access" });
   }
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) {
-      console.log(err);
-      return res.status(401).send({ message: "unauthorized access" });
+      // console.log(err);
+      return res.status(401).send({ message: "Unauthorized Access" });
     }
     req.user = decoded;
     next();
@@ -55,6 +55,27 @@ async function run() {
     const db = client.db("stayVista");
     const roomCollection = db.collection("rooms");
     const userCollection = db.collection("users");
+
+    // Middleware
+    // Verify Admin
+    const verifyAdmin = async (req, res, next) => {
+      const user = req.user;
+      const query = { email: user?.email };
+      const result = await userCollection.findOne(query);
+      if (!result || result?.role !== "admin")
+        return res.status(403).send({ message: "Forbidden Access" });
+      next();
+    };
+
+    // Verify Admin
+    const verifyHost = async (req, res, next) => {
+      const user = req.user;
+      const query = { email: user?.email };
+      const result = await userCollection.findOne(query);
+      if (!result || result?.role !== "host")
+        return res.status(403).send({ message: "Forbidden Access" });
+      next();
+    };
 
     // auth related api
     app.post("/jwt", async (req, res) => {
@@ -121,7 +142,7 @@ async function run() {
     });
 
     // get all users info
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
@@ -159,23 +180,28 @@ async function run() {
     });
 
     // get all room for host
-    app.get("/my-listings/:email", async (req, res) => {
-      const email = req.params.email;
-      const result = await roomCollection
-        .find({ "host.email": email })
-        .toArray();
-      res.send(result);
-    });
+    app.get(
+      "/my-listings/:email",
+      verifyToken,
+      verifyHost,
+      async (req, res) => {
+        const email = req.params.email;
+        const result = await roomCollection
+          .find({ "host.email": email })
+          .toArray();
+        res.send(result);
+      }
+    );
 
     // save new room data
-    app.post("/room", async (req, res) => {
+    app.post("/room", verifyToken, verifyHost, async (req, res) => {
       const roomData = req.body;
       const result = await roomCollection.insertOne(roomData);
       res.send(result);
     });
 
     // remove host room data
-    app.delete("/room/:id", async (req, res) => {
+    app.delete("/room/:id", verifyToken, verifyHost, async (req, res) => {
       const id = req.params.id;
       const result = await roomCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
