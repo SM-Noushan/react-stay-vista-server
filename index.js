@@ -126,6 +126,20 @@ async function run() {
       res.send(result);
     });
 
+    // update user role
+    app.patch("/user/update/role/:email", async (req, res) => {
+      const email = req.params.email;
+      const user = req.body;
+      const updatedDoc = {
+        $set: {
+          ...user,
+          timestamp: Date.now(),
+        },
+      };
+      const result = await userCollection.updateOne({ email }, updatedDoc);
+      res.send(result);
+    });
+
     // rooms related api
 
     // get all room
