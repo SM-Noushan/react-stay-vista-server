@@ -302,10 +302,21 @@ async function run() {
         (acc, booking) => acc + booking.price,
         0
       );
-      const chartData = bookingDetails.map((booking) => {
-        const day = new Date(booking.date).getDate();
-        const month = new Date(booking.date).getMonth() + 1;
-        const data = [`${day}/${month}`, booking.price];
+      // summing up same day sale
+      const aggregatedData = bookingDetails.reduce((acc, booking) => {
+        const date = new Date(booking.date.split("T")[0]);
+        if (!acc[date]) {
+          acc[date] = 0;
+        }
+
+        acc[date] += booking.price;
+        return acc;
+      }, {});
+      // converting to chart data
+      const chartData = Object.entries(aggregatedData).map(([date, price]) => {
+        const day = new Date(date).getDate();
+        const month = new Date(date).getMonth() + 1;
+        const data = [`${day}/${month}`, price];
         return data;
       });
       chartData.unshift(["Day", "Sales"]);
