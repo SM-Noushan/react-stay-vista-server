@@ -2,6 +2,7 @@ require("dotenv").config();
 const cors = require("cors");
 const express = require("express");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 const cookieParser = require("cookie-parser");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
@@ -19,6 +20,38 @@ app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(cookieParser());
+
+// send automated mail
+const sendEmail = (emailAddress, emailData) => {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false, // Use `true` for port 465, `false` for all other ports
+    auth: {
+      user: process.env.TRANSPORTER_USER,
+      pass: process.env.TRANSPORTER_PASSWORD,
+    },
+  });
+
+  // verify connection configuration
+  transporter.verify(function (error, success) {
+    if (error) console.log(error);
+    // else console.log("Server is ready to take our messages");
+  });
+
+  const mailBody = {
+    from: `"StayVista" <${process.env.TRANSPORTER_USER}>`, // sender address
+    to: emailAddress, // list of receivers
+    subject: emailData.subject, // Subject line
+    html: emailData.message, // html body
+  };
+
+  transporter.sendMail(mailBody, (err, info) => {
+    if (err) console.log(err);
+    // else console.log("Email Sent" + info.response);
+  });
+};
 
 // Verify Token Middleware
 const verifyToken = async (req, res, next) => {
@@ -98,7 +131,7 @@ async function run() {
             sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
           })
           .send({ success: true });
-        console.log("Logout successful");
+        // console.log("Logout successful");
       } catch (err) {
         res.status(500).send(err);
       }
@@ -128,6 +161,11 @@ async function run() {
           },
         };
       const result = await userCollection.updateOne(query, updateDoc, options);
+      if (result.upsertedCount)
+        sendEmail(user?.email, {
+          subject: "<No-Reply> Welcome To StayVista",
+          message: `Browse Rooms and Reserve Now! Hope you find your destination here.`,
+        });
       res.send(result);
     });
 
@@ -290,6 +328,16 @@ async function run() {
       bookingData.roomId = new ObjectId(bookingData?.roomId);
       // save new booking info
       const result = await bookingCollection.insertOne(bookingData);
+      // send email to host
+      sendEmail(bookingData?.host?.email, {
+        subject: "<No-Reply> Your Room Got Reserved",
+        message: `Get Ready To Welcome ${bookingData?.guest.name}`,
+      });
+      // send email to guest
+      sendEmail(bookingData?.guest?.email, {
+        subject: "<No-Reply> Reservation Successful",
+        message: `You've successfully reserved a room through StayVista. TransactionId: ${bookingData?.transactionId}`,
+      });
       res.send(result);
     });
 
