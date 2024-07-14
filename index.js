@@ -280,6 +280,44 @@ async function run() {
       res.send(result);
     });
 
+    // statistics related api
+
+    // admin stats
+    // get all room for host
+    app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
+      const totalUsers = await userCollection.countDocuments();
+      const totalRooms = await roomCollection.countDocuments();
+      const bookingDetails = await bookingCollection
+        .find(
+          {},
+          {
+            projection: {
+              date: 1,
+              price: 1,
+            },
+          }
+        )
+        .toArray();
+      const totalSales = bookingDetails.reduce(
+        (acc, booking) => acc + booking.price,
+        0
+      );
+      const chartData = bookingDetails.map((booking) => {
+        const day = new Date(booking.date).getDate();
+        const month = new Date(booking.date).getMonth() + 1;
+        const data = [`${day}/${month}`, booking.price];
+        return data;
+      });
+      chartData.unshift(["Day", "Sales"]);
+      res.send({
+        totalSales,
+        totalUsers,
+        totalBookings: bookingDetails.length,
+        totalRooms,
+        chartData,
+      });
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
