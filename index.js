@@ -220,6 +220,19 @@ async function run() {
       res.send(result);
     });
 
+    // update room details
+    app.patch("/room/:id", verifyToken, verifyHost, async (req, res) => {
+      const id = req.params.id;
+      const roomData = req.body;
+      // update room status
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: roomData,
+      };
+      const result = await roomCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
     // change room status
     app.patch("/room/status/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
