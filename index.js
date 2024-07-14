@@ -1,24 +1,20 @@
-const express = require("express");
-const app = express();
 require("dotenv").config();
 const cors = require("cors");
-const cookieParser = require("cookie-parser");
-const {
-  MongoClient,
-  ServerApiVersion,
-  ObjectId,
-  Timestamp,
-} = require("mongodb");
+const express = require("express");
 const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const port = process.env.PORT || 8000;
 
-// middleware
 const corsOptions = {
   origin: ["http://localhost:5173", "http://localhost:5174"],
   credentials: true,
   optionSuccessStatus: 200,
 };
+// middleware
+const app = express();
 app.use(cors(corsOptions));
 
 app.use(express.json());
@@ -205,6 +201,26 @@ async function run() {
       const id = req.params.id;
       const result = await roomCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
+    });
+
+    // stripe payment intent
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+      const { price } = req.body;
+      const priceInCent = parseFloat(price * 100);
+      if (!price || priceInCent < 1) return;
+
+      // generate client secret
+      // Create a PaymentIntent with the order amount and currency
+      const { client_secret } = await stripe.paymentIntents.create({
+        amount: priceInCent,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      // send client secret as response
+      res.send({
+        clientSecret: client_secret,
+      });
     });
 
     // Send a ping to confirm a successful connection
