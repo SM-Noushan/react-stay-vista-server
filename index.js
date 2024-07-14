@@ -190,6 +190,15 @@ async function run() {
       }
     );
 
+    // get all bookings for guest
+    app.get("/my-bookings/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const result = await bookingCollection
+        .find({ "guest.email": email })
+        .toArray();
+      res.send(result);
+    });
+
     // save new room data
     app.post("/room", verifyToken, verifyHost, async (req, res) => {
       const roomData = req.body;
@@ -216,6 +225,15 @@ async function run() {
     app.delete("/room/:id", verifyToken, verifyHost, async (req, res) => {
       const id = req.params.id;
       const result = await roomCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+
+    // remove guest booking
+    app.delete("/booking/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const result = await bookingCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
       res.send(result);
     });
 
