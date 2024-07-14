@@ -190,6 +190,20 @@ async function run() {
       }
     );
 
+    // get all bookings for host
+    app.get(
+      "/manage-bookings/:email",
+      verifyToken,
+      verifyHost,
+      async (req, res) => {
+        const email = req.params.email;
+        const result = await bookingCollection
+          .find({ "host.email": email })
+          .toArray();
+        res.send(result);
+      }
+    );
+
     // get all bookings for guest
     app.get("/my-bookings/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
