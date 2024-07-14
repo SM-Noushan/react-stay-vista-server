@@ -283,7 +283,6 @@ async function run() {
     // statistics related api
 
     // admin stats
-    // get all room for host
     app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
       const totalUsers = await userCollection.countDocuments();
       const totalRooms = await roomCollection.countDocuments();
@@ -325,6 +324,114 @@ async function run() {
         totalUsers,
         totalBookings: bookingDetails.length,
         totalRooms,
+        chartData,
+      });
+    });
+
+    // host stats
+    app.get("/host-stats", verifyToken, verifyHost, async (req, res) => {
+      const { email } = req.user;
+      const { timestamp } = await userCollection.findOne(
+        { email },
+        {
+          projection: {
+            timestamp: 1,
+          },
+        }
+      );
+      const totalRooms = await roomCollection.countDocuments({
+        "host.email": email,
+      });
+      const bookingDetails = await bookingCollection
+        .find(
+          { "host.email": email },
+          {
+            projection: {
+              date: 1,
+              price: 1,
+            },
+          }
+        )
+        .toArray();
+      const totalSales = bookingDetails.reduce(
+        (acc, booking) => acc + booking.price,
+        0
+      );
+      // summing up same day sale
+      const aggregatedData = bookingDetails.reduce((acc, booking) => {
+        const date = new Date(booking.date.split("T")[0]);
+        if (!acc[date]) {
+          acc[date] = 0;
+        }
+
+        acc[date] += booking.price;
+        return acc;
+      }, {});
+      // converting to chart data
+      const chartData = Object.entries(aggregatedData).map(([date, price]) => {
+        const day = new Date(date).getDate();
+        const month = new Date(date).getMonth() + 1;
+        const data = [`${day}/${month}`, price];
+        return data;
+      });
+      chartData.unshift(["Day", "Sales"]);
+      res.send({
+        totalSales,
+        totalBookings: bookingDetails.length,
+        totalRooms,
+        hostSince: timestamp,
+        chartData,
+      });
+    });
+
+    // guest stats
+    app.get("/guest-stats", verifyToken, async (req, res) => {
+      const { email } = req.user;
+      const { timestamp } = await userCollection.findOne(
+        { email },
+        {
+          projection: {
+            timestamp: 1,
+          },
+        }
+      );
+      const bookingDetails = await bookingCollection
+        .find(
+          { "guest.email": email },
+          {
+            projection: {
+              date: 1,
+              price: 1,
+            },
+          }
+        )
+        .toArray();
+      const totalSpent = bookingDetails.reduce(
+        (acc, booking) => acc + booking.price,
+        0
+      );
+      // summing up same day expense
+      const aggregatedData = bookingDetails.reduce((acc, booking) => {
+        const date = new Date(booking.date.split("T")[0]);
+        if (!acc[date]) {
+          acc[date] = 0;
+        }
+
+        acc[date] += booking.price;
+        return acc;
+      }, {});
+      // converting to chart data
+      const chartData = Object.entries(aggregatedData).map(([date, price]) => {
+        const day = new Date(date).getDate();
+        const month = new Date(date).getMonth() + 1;
+        const data = [`${day}/${month}`, price];
+        return data;
+      });
+      chartData.unshift(["Day", "Spent"]);
+      res.send({
+        totalSpent,
+        totalBookings: bookingDetails.length,
+        guestSince: timestamp,
         chartData,
       });
     });
